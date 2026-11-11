@@ -280,3 +280,31 @@ test('I2: two plans of one stop leave one timer: one try 10 s later, not two', a
   await clock.advance(10_600);
   assert.equal(srv.count('device/turnOff'), 1);
 });
+
+test('I5: after a restart, a mark is a hint only: a stop is sent; the test button tries and its success clears the mark', async (t) => {
+  const first = await setup(t);
+  first.srv.routes['GET devices/list'] = () => reply(401, {});
+  await first.clock.advance(TIMINGS.pollDefault + 100);
+  await until(first.clock, () => first.app.refused(), 'refusal');
+  // In session, the refusal is proven: the stop is not sent with these keys.
+  assert.match(
+    await answer(first, command(first, D('live', 101, 'state'), 0)),
+    /refused these credentials/,
+  );
+  await first.app.stop();
+  delete first.srv.routes['GET devices/list'];
+  // Restart: same mark (a collision, or the same keys), no proof in memory.
+  const again = await setup(t, {
+    data: first.store.data,
+    srv: first.srv,
+    clock: first.clock,
+    firstRead: false,
+  });
+  assert.equal(again.app.refused(), true);
+  assert.match(await answer(again, command(again, D('live', 101, 'state'), 0)), /^sent/);
+  assert.equal(first.srv.count('device/turnOff'), 1);
+  const text = await answer(again, again.app.testConnection());
+  assert.match(text.en, /Connection works/);
+  assert.equal(again.app.refused(), false);
+  assert.equal(again.store.data.auth.refused, false);
+});

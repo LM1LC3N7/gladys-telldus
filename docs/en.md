@@ -88,14 +88,18 @@ system never drops a stop). Pending stops are kept in
 Turning off is not sent only when: the configuration is not read or not
 usable yet (it is kept and leaves as soon as it is, within its 2 minutes);
 the device belongs to the other connection mode; Telldus refused these very
-credentials.
+credentials since the integration started (a mark kept from before a restart
+does not hold a stop).
 
 ## Errors and limits
 
 - **401/403 on the device list**: the credentials are refused. Nothing is
-  sent with them again on its own (the refusal and a 32-bit mark, salted,
+  sent with them again on its own (the refusal and a 6-bit mark, salted,
   are kept in `/data`); new credentials, a new local access or a success of
-  the **Test the connection** button lift it. A 401/403 on the sensors only,
+  the **Test the connection** button lift it. After a restart, new
+  credentials entered while the integration was stopped share the mark of the
+  refused ones once in 64: reads then wait, but the test button always tries
+  and its success clears the mark, and turning off is still sent. A 401/403 on the sensors only,
   or on a command, is not a refusal: the sensors are then read less often
   (up to once an hour).
 - **429 or 5xx on a read**: reads paused (1 minute, doubled at each one in a

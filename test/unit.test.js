@@ -270,7 +270,7 @@ test('/data: repaired on load (future dates, old stops, unknown keys, prototype)
       salt: 'ab'.repeat(16),
       lastAttempt: now + 1000,
       pause: { until: now + 10 * 3_600_000, failures: 3 },
-      auth: { refused: true, mark: 2 ** 32 },
+      auth: { refused: true, mark: 64 },
       stops: [
         { mode: 'live', id: '1', at: now - 1000, sent: 1, attempts: 1 },
         { mode: 'live', id: '1', at: now - 1000 },
@@ -301,16 +301,17 @@ test('/data: repaired on load (future dates, old stops, unknown keys, prototype)
   assert.ok(/^[0-9a-f]{32}$/.test(emptyMemory().salt));
 });
 
-test('the mark of refused credentials: 32 bits, salted; new keys never collide in practice', () => {
+test('the mark of refused credentials says nothing usable: 64 values, thousands of keys each (brute force)', () => {
   const salt = 'cd'.repeat(16);
-  const marks = new Set();
+  const buckets = new Map();
   for (let i = 0; i < 20_000; i += 1) {
     const m = mark(salt, `key-${i}`);
-    assert.ok(Number.isInteger(m) && m >= 0 && m <= 0xffffffff);
-    marks.add(m);
+    assert.ok(Number.isInteger(m) && m >= 0 && m < 64);
+    buckets.set(m, (buckets.get(m) ?? 0) + 1);
   }
-  assert.equal(marks.size, 20_000);
-  assert.notEqual(mark(salt, 'key-1'), mark('ef'.repeat(16), 'key-1'));
+  // A brute force over 20 000 candidate keys leaves more than 150 per mark: the mark finds none.
+  assert.equal(buckets.size, 64);
+  assert.ok(Math.min(...buckets.values()) > 150);
 });
 
 test('HTTP: an answer over the limit is cut before it ends; a refused connection sent nothing; a timeout after the write sent', async (t) => {

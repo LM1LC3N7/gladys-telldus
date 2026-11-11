@@ -361,6 +361,11 @@ export class TelldusApp {
   }
 
   /** Telldus refused these very credentials (kept in /data). */
+  /** Telldus refused these very credentials while the module runs (in memory only: proof, not a mark). */
+  refusedProven() {
+    return Boolean(this.config && this.refusedText === credentialsText(this.config));
+  }
+
   refused() {
     return Boolean(
       this.config && this.memory.auth.refused && this.memory.auth.mark === this.credentialsMark(),
@@ -635,6 +640,7 @@ export class TelldusApp {
     this.logger?.warn(`Telldus read failed (${this.redact(err.message)})`);
     if (err.kind === 'auth' && main) {
       this.memory.auth = { refused: true, mark: this.credentialsMark() };
+      this.refusedText = credentialsText(this.config);
       this.lastResult = { ok: false, kind: 'auth' };
       this.save();
       this.publishStatus();
@@ -866,7 +872,8 @@ export class TelldusApp {
   stopReady(stop) {
     if (!this.config || !this.api) return T.stopNoConfig;
     if (stop.mode !== this.config.mode) return T.otherMode;
-    if (this.refused()) return T.stopRefusedAuth;
+    // A mark kept in /data is a hint only (64 values): a stop is held only by a refusal seen now.
+    if (this.refusedProven()) return T.stopRefusedAuth;
     return true;
   }
 
@@ -1112,13 +1119,19 @@ export class TelldusApp {
     }
     const gen = this.generation;
     const wasRefused = this.refused();
-    if (wasRefused) this.memory.auth = { refused: false };
+    const proven = this.refusedText;
+    if (wasRefused) {
+      // The button always tries: a mark may be a collision after a restart.
+      this.memory.auth = { refused: false };
+      this.refusedText = undefined;
+    }
     const result = await this.read(gen);
     if (gen === this.generation && !this.refused() && this.lastResult?.ok) {
       this.schedulePoll(this.config.pollMs);
     } else if (wasRefused && !this.refused() && !this.lastResult?.ok) {
       // Nothing proved the keys good: still refused.
       this.memory.auth = { refused: true, mark: this.credentialsMark() };
+      this.refusedText = proven;
       this.save();
     }
     void result;

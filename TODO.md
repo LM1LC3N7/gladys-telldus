@@ -48,11 +48,14 @@ up to date at the end of every milestone.
   never pauses the others; a 429 pauses the account (all but stops).
 - Credentials: never in `/data`, logs, status, errors (the API error texts
   are masked). The local token lives in the Gladys configuration only; its
-  expiry and a 32-bit salted mark are in `/data`.
-- Refusal mark: 32 bits salted (review r1, I3), not 4-8 bits: Telldus keys
-  and tokens are long random texts (no brute force), and new credentials must
-  never be taken for refused ones; changed credentials lift a refusal in
-  session at once anyway.
+  expiry and a 6-bit salted mark are in `/data`.
+- Refusal mark: 6 bits salted (fiche: 4-8 bits; 32 bits tried in r1 and
+  reverted in r2, a long fingerprint of a secret could help a brute force).
+  Changed credentials or a new local token lift a refusal at once while the
+  module runs. After a restart, other credentials share the mark of the
+  refused ones once in 64: the reads then wait, but the test button always
+  tries and its success clears the mark, and the stops take a mark as a hint
+  only (they are held only by a refusal seen while the module runs).
 - Stop ages on the monotonic clock (review r1, I1); the wall date of /data
   only places a stop kept across a restart, bounded to 2 minutes.
 - The test button may lift a refusal by a success, not more often than the

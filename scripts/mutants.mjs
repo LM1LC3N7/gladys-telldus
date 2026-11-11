@@ -65,13 +65,13 @@ export const MUTANTS = [
   [
     'stop ignores a pause',
     A,
-    'if (this.refused()) return T.stopRefusedAuth;\n    return true;',
-    'if (this.refused() || this.paused()) return T.stopRefusedAuth;\n    return true;',
+    'if (this.refusedProven()) return T.stopRefusedAuth;\n    return true;',
+    'if (this.refusedProven() || this.paused()) return T.stopRefusedAuth;\n    return true;',
   ],
   [
     'stop not sent with refused keys',
     A,
-    'if (this.refused()) return T.stopRefusedAuth;\n    return true;',
+    'if (this.refusedProven()) return T.stopRefusedAuth;\n    return true;',
     'return true;',
   ],
   ['two resends', 'src/constants.js', 'stopResends: [3_000, 10_000]', 'stopResends: [3_000]'],
@@ -116,8 +116,8 @@ export const MUTANTS = [
   [
     'refusal kept',
     A,
-    "this.memory.auth = { refused: true, mark: this.credentialsMark() };\n      this.lastResult = { ok: false, kind: 'auth' };",
-    "this.lastResult = { ok: false, kind: 'auth' };",
+    'this.memory.auth = { refused: true, mark: this.credentialsMark() };\n      this.refusedText = credentialsText(this.config);',
+    'this.refusedText = credentialsText(this.config);',
   ],
   [
     'secondary never a refusal',
@@ -256,6 +256,24 @@ export const MUTANTS = [
     A,
     'if ((this.stopGen.get(deviceKey) ?? 0) !== gen) return { ok: true };',
     '',
+  ],
+  [
+    'I5 a mark only holds no stop',
+    A,
+    'if (this.refusedProven()) return T.stopRefusedAuth;',
+    'if (this.refused()) return T.stopRefusedAuth;',
+  ],
+  [
+    'I5 the mark keeps 6 bits',
+    'src/store.js',
+    'const MARK_MAX = 63;',
+    'const MARK_MAX = 0xffffffff;',
+  ],
+  [
+    'I5 the button clears a mark',
+    A,
+    'this.memory.auth = { refused: false };\n      this.refusedText = undefined;',
+    'this.refusedText = undefined;',
   ],
 ];
 

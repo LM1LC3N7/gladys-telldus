@@ -98,14 +98,19 @@ continuent après un redémarrage (jamais au-delà de 2 minutes).
 L’extinction ne part pas seulement quand : la configuration n’est pas encore
 lue ou pas utilisable (elle est gardée et part dès qu’elle l’est, dans ses
 2 minutes) ; l’appareil est de l’autre mode de connexion ; Telldus a refusé
-ces identifiants-là.
+ces identifiants-là depuis le démarrage de l’intégration (une marque gardée
+d’avant un redémarrage ne retient pas une extinction).
 
 ## Erreurs et limites
 
 - **401/403 sur la liste des appareils** : identifiants refusés. Plus rien
-  n’est envoyé avec eux de lui-même (le refus et une marque de 32 bits, salée,
+  n’est envoyé avec eux de lui-même (le refus et une marque de 6 bits, salée,
   sont gardés dans `/data`) ; de nouveaux identifiants, un nouvel accès local
-  ou un succès du bouton **Tester la connexion** le lèvent. Un 401/403 sur les
+  ou un succès du bouton **Tester la connexion** le lèvent. Après un
+  redémarrage, de nouveaux identifiants saisis pendant l’arrêt de
+  l’intégration ont la marque des refusés une fois sur 64 : les lectures
+  attendent alors, mais le bouton de test essaie toujours et son succès efface
+  la marque, et l’extinction part quand même. Un 401/403 sur les
   capteurs seuls, ou sur une commande, n’est pas un refus : les capteurs sont
   alors lus moins souvent (jusqu’à une fois par heure).
 - **429 ou 5xx sur une lecture** : lectures en pause (1 minute, doublée à

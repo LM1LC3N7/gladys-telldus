@@ -5,9 +5,9 @@
 //   - the time of the last read attempt (a restart never reads sooner than
 //     the interval);
 //   - the pause after a 429 / 5xx (until, count in a row);
-//   - after Telldus refused the keys or the token: the refusal and a 32-bit
-//     salted mark of what was refused (never the key), so it is never sent
-//     again on its own after a restart;
+//   - after Telldus refused the keys or the token: the refusal and a 6-bit
+//     salted mark of what was refused (64 values, says nothing usable of a
+//     key), so it is not sent again on its own after a restart;
 //   - the stops (turn off) still to be sent again;
 //   - the source date of the last sensor value published, per feature (a
 //     value never published twice as new);
@@ -229,14 +229,15 @@ export function serializeMemory(memory) {
   };
 }
 
-const MARK_MAX = 0xffffffff;
+const MARK_MAX = 63;
 
 /**
- * The 32-bit salted mark of a text (credentials, a token): new credentials are
- * never taken for the refused ones (1 chance in 4 billion), and the salt makes
- * it useless elsewhere. The keys and tokens of Telldus are long random texts:
- * no brute force can rebuild them from 32 bits.
+ * The 6-bit salted mark of a text (credentials, a token): 64 values, so it
+ * says nothing usable of a key (thousands of keys share each mark). After a
+ * restart, other credentials share the mark of the refused ones once in 64:
+ * the test button always tries and its success clears the mark; the stops
+ * take a mark as a hint only and are sent.
  */
 export function mark(salt, text) {
-  return createHash('sha256').update(`${salt}\0${text}`).digest().readUInt32BE(0);
+  return createHash('sha256').update(`${salt}\0${text}`).digest()[0] & MARK_MAX;
 }
