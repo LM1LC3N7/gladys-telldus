@@ -1,177 +1,242 @@
 {
   "manifest_version": 1,
   "type": "device",
-  "name": "Demo Devices Template",
+  "name": "Telldus",
   "description": {
-    "en": "Starter template showing sensors, a switch, a dimmable light and a smart plug.",
-    "fr": "Template de démarrage : capteurs, interrupteur, lampe variable et prise connectée."
+    "en": "TellStick and Telldus Live: 433 MHz plugs, lights and sensors.",
+    "fr": "TellStick et Telldus Live : prises, lumières et capteurs 433 MHz."
   },
-  "version": "1.0.0",
-  "docker_image": "ghcr.io/gladysassistant/integration-template-js:1.0.0",
+  "version": "0.1.0",
+  "docker_image": "ghcr.io/lm1lc3n7/gladys-telldus:0.1.0",
   "gladys_version": ">=5.1.0",
-  "cover_image": "https://raw.githubusercontent.com/GladysAssistant/integration-template-js/master/cover.png",
-  "categories": ["lighting", "security", "environment"],
-  "transports": ["local", "cloud"],
+  "cover_image": "https://raw.githubusercontent.com/LM1LC3N7/gladys-telldus/main/cover.png",
+  "categories": ["protocols", "lighting", "environment"],
+  "transports": ["cloud", "local"],
   "config_schema": [
     {
       "key": "intro",
       "type": "section",
-      "label": { "en": "Getting started", "fr": "Pour commencer" },
+      "label": {
+        "en": "Getting started",
+        "fr": "Pour commencer"
+      },
       "description": {
-        "en": "The demo weather station reads real data from the free Open-Meteo API: pick the coordinates to observe. No account, no API key.",
-        "fr": "La station météo de démonstration lit de vraies données via l'API gratuite Open-Meteo : choisissez les coordonnées à observer. Pas de compte, pas de clé d'API."
+        "en": "Reads the 433 MHz devices and the temperature and humidity sensors of your TellStick, through Telldus Live (cloud, your own API keys) or the local API of a TellStick ZNet / Net v2. 433 MHz receivers answer nothing: their state is assumed. A device is commanded only once you declare it safe. Unofficial, not affiliated with Telldus; never tested with a real device.",
+        "fr": "Lit les appareils 433 MHz et les capteurs de température et d’humidité de votre TellStick, par Telldus Live (cloud, vos propres clés d’API) ou par l’API locale d’une TellStick ZNet / Net v2. Les récepteurs 433 MHz ne répondent rien : leur état est supposé. Un appareil n’est commandé qu’une fois déclaré sûr. Non officielle, sans lien avec Telldus ; jamais testée avec un vrai appareil."
       },
       "links": [
         {
-          "url": "https://open-meteo.com/en/docs",
-          "label": { "en": "Open-Meteo documentation", "fr": "Documentation Open-Meteo" }
+          "url": "https://github.com/LM1LC3N7/gladys-telldus/blob/main/docs/en.md",
+          "label": {
+            "en": "Documentation",
+            "fr": "Documentation"
+          }
         }
       ]
     },
     {
-      "key": "latitude",
-      "type": "number",
-      "label": { "en": "Latitude", "fr": "Latitude" },
-      "description": {
-        "en": "Latitude used for the demo weather sensor.",
-        "fr": "Latitude utilisée par le capteur météo de démonstration."
-      },
-      "placeholder": { "en": "e.g. 48.8566", "fr": "ex. 48.8566" },
-      "required": true,
-      "default": 48.8566,
-      "min": -90,
-      "max": 90
-    },
-    {
-      "key": "longitude",
-      "type": "number",
-      "label": { "en": "Longitude", "fr": "Longitude" },
-      "description": {
-        "en": "Longitude used for the demo weather sensor.",
-        "fr": "Longitude utilisée par le capteur météo de démonstration."
-      },
-      "placeholder": { "en": "e.g. 2.3522", "fr": "ex. 2.3522" },
-      "required": true,
-      "default": 2.3522,
-      "min": -180,
-      "max": 180
-    },
-    {
-      "key": "unit",
+      "key": "mode",
       "type": "select",
-      "label": { "en": "Temperature unit", "fr": "Unité de température" },
+      "label": {
+        "en": "Connection",
+        "fr": "Connexion"
+      },
       "required": false,
-      "default": "celsius",
+      "default": "live",
       "options": [
-        { "value": "celsius", "label": { "en": "Celsius", "fr": "Celsius" } },
-        { "value": "fahrenheit", "label": { "en": "Fahrenheit", "fr": "Fahrenheit" } }
+        {
+          "value": "live",
+          "label": {
+            "en": "Telldus Live (cloud)",
+            "fr": "Telldus Live (cloud)"
+          }
+        },
+        {
+          "value": "local",
+          "label": {
+            "en": "Local API (TellStick ZNet / Net v2)",
+            "fr": "API locale (TellStick ZNet / Net v2)"
+          }
+        }
       ]
     },
     {
-      "key": "poll_frequency",
-      "type": "number",
-      "label": { "en": "Refresh interval (s)", "fr": "Intervalle de rafraîchissement (s)" },
+      "key": "live_intro",
+      "type": "section",
+      "label": {
+        "en": "Telldus Live",
+        "fr": "Telldus Live"
+      },
       "description": {
-        "en": "How often sensors are polled, in seconds (one minute minimum).",
-        "fr": "Fréquence d'interrogation des capteurs, en secondes (une minute minimum)."
+        "en": "Sign in on api.telldus.com/keys and generate a private token: it gives the four values below (public key, private key, token, token secret).",
+        "fr": "Connectez-vous sur api.telldus.com/keys et générez un jeton privé : il donne les quatre valeurs ci-dessous (clé publique, clé privée, jeton, secret du jeton)."
+      },
+      "links": [
+        {
+          "url": "https://api.telldus.com/keys",
+          "label": {
+            "en": "Telldus Live API keys",
+            "fr": "Clés d’API Telldus Live"
+          }
+        }
+      ]
+    },
+    {
+      "key": "public_key",
+      "type": "secret",
+      "label": {
+        "en": "Public key",
+        "fr": "Clé publique"
+      },
+      "description": {
+        "en": "Kept by Gladys in its database, never shown again, sent only to Telldus Live.",
+        "fr": "Gardé par Gladys dans sa base, jamais réaffiché, envoyé seulement à Telldus Live."
+      },
+      "required": false
+    },
+    {
+      "key": "private_key",
+      "type": "secret",
+      "label": {
+        "en": "Private key",
+        "fr": "Clé privée"
+      },
+      "description": {
+        "en": "Kept by Gladys in its database, never shown again, sent only to Telldus Live.",
+        "fr": "Gardé par Gladys dans sa base, jamais réaffiché, envoyé seulement à Telldus Live."
+      },
+      "required": false
+    },
+    {
+      "key": "token",
+      "type": "secret",
+      "label": {
+        "en": "Token",
+        "fr": "Jeton"
+      },
+      "description": {
+        "en": "Kept by Gladys in its database, never shown again, sent only to Telldus Live.",
+        "fr": "Gardé par Gladys dans sa base, jamais réaffiché, envoyé seulement à Telldus Live."
+      },
+      "required": false
+    },
+    {
+      "key": "token_secret",
+      "type": "secret",
+      "label": {
+        "en": "Token secret",
+        "fr": "Secret du jeton"
+      },
+      "description": {
+        "en": "Kept by Gladys in its database, never shown again, sent only to Telldus Live.",
+        "fr": "Gardé par Gladys dans sa base, jamais réaffiché, envoyé seulement à Telldus Live."
+      },
+      "required": false
+    },
+    {
+      "key": "local_intro",
+      "type": "section",
+      "label": {
+        "en": "Local API",
+        "fr": "API locale"
+      },
+      "description": {
+        "en": "Enter the address of the TellStick, save, click \"Request local access\", accept in the browser, then click \"Finish local access\": the token is saved here. Use it on a trusted network only (the local API is plain HTTP).",
+        "fr": "Saisissez l’adresse de la TellStick, enregistrez, cliquez sur « Demander l’accès local », acceptez dans le navigateur, puis cliquez sur « Terminer l’accès local » : le jeton est enregistré ici. À utiliser sur un réseau de confiance seulement (l’API locale est en HTTP simple)."
+      }
+    },
+    {
+      "key": "host",
+      "type": "string",
+      "label": {
+        "en": "TellStick address",
+        "fr": "Adresse de la TellStick"
+      },
+      "placeholder": {
+        "en": "e.g. 192.168.1.40",
+        "fr": "ex. 192.168.1.40"
+      },
+      "required": false
+    },
+    {
+      "key": "local_token",
+      "type": "secret",
+      "label": {
+        "en": "Local token",
+        "fr": "Jeton local"
+      },
+      "description": {
+        "en": "Kept by Gladys in its database, never shown again, sent only to your TellStick.",
+        "fr": "Gardé par Gladys dans sa base, jamais réaffiché, envoyé seulement à votre TellStick."
+      },
+      "required": false
+    },
+    {
+      "key": "devices_intro",
+      "type": "section",
+      "label": {
+        "en": "Devices",
+        "fr": "Appareils"
+      },
+      "description": {
+        "en": "A plug may feed a heater or a pump, and \"turn everything off/on\" reaches every switch and light: a device is commanded only once its Telldus id is listed here (the \"Test the connection\" button lists the ids). Turning off is never refused. Then scan and update the device in the Discovery tab.",
+        "fr": "Une prise peut alimenter un radiateur ou une pompe, et « tout éteindre/allumer » atteint chaque interrupteur et lumière : un appareil n’est commandé qu’une fois son identifiant Telldus listé ici (le bouton « Tester la connexion » donne les identifiants). Éteindre n’est jamais refusé. Puis scannez et mettez à jour l’appareil dans l’onglet Découverte."
+      }
+    },
+    {
+      "key": "safe_devices",
+      "type": "string",
+      "label": {
+        "en": "Devices declared safe (Telldus ids)",
+        "fr": "Appareils déclarés sûrs (identifiants Telldus)"
+      },
+      "placeholder": {
+        "en": "e.g. 1234567, 1234568",
+        "fr": "ex. 1234567, 1234568"
+      },
+      "required": false
+    },
+    {
+      "key": "poll_seconds",
+      "type": "number",
+      "label": {
+        "en": "Read interval (s)",
+        "fr": "Intervalle de lecture (s)"
+      },
+      "description": {
+        "en": "How often Telldus is read: 60 s at least for Telldus Live, 10 s for the local API.",
+        "fr": "Fréquence de lecture de Telldus : 60 s au moins pour Telldus Live, 10 s pour l’API locale."
       },
       "required": false,
-      "default": 300,
-      "min": 60,
+      "default": 60,
+      "min": 10,
       "max": 3600
     }
   ],
   "actions": [
     {
-      "key": "test_weather",
-      "label": { "en": "Test the weather provider", "fr": "Tester le fournisseur météo" },
+      "key": "test_connection",
+      "label": {
+        "en": "Test the connection",
+        "fr": "Tester la connexion"
+      },
       "timeout_seconds": 30
     },
     {
-      "key": "identify",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
-        }
-      ]
-    }
-  ],
-  "scene_triggers": [
-    {
-      "key": "motion_detected",
-      "label": { "en": "Motion detected", "fr": "Mouvement détecté" },
-      "description": {
-        "en": "A demo motion sensor saw a person or an animal move.",
-        "fr": "Un détecteur de démonstration a vu bouger une personne ou un animal."
+      "key": "request_local_access",
+      "label": {
+        "en": "Request local access",
+        "fr": "Demander l’accès local"
       },
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Sensor", "fr": "Détecteur" }
-        },
-        {
-          "key": "target",
-          "type": "multi_select",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" },
-          "options": [
-            { "value": "person", "label": { "en": "Person", "fr": "Personne" } },
-            { "value": "animal", "label": { "en": "Animal", "fr": "Animal" } }
-          ]
-        }
-      ],
-      "variables": [
-        {
-          "key": "target",
-          "type": "string",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" }
-        }
-      ]
-    }
-  ],
-  "scene_actions": [
+      "timeout_seconds": 30
+    },
     {
-      "key": "identify_device",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "description": {
-        "en": "Make a device signal itself (the demo light blinks).",
-        "fr": "Fait se signaler un appareil (la lampe de démonstration clignote)."
+      "key": "finish_local_access",
+      "label": {
+        "en": "Finish local access",
+        "fr": "Terminer l’accès local"
       },
-      "timeout_seconds": 15,
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
-        }
-      ],
-      "outputs": [
-        {
-          "key": "signalled",
-          "type": "boolean",
-          "label": { "en": "Device signalled", "fr": "Appareil signalé" }
-        }
-      ]
-    }
-  ],
-  "widgets": [
-    {
-      "key": "demo_status",
-      "label": { "en": "Demo status", "fr": "État de la démo" },
-      "description": {
-        "en": "Live temperature and plug power, plug connection and observed location.",
-        "fr": "Température et puissance en direct, connexion de la prise, position observée."
-      },
-      "icon": "activity",
-      "action_timeout_seconds": 15
+      "timeout_seconds": 30
     }
   ]
 }
