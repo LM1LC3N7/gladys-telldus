@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-11
+
 ### Added
 
 - First version: the 433 MHz devices and sensors of a TellStick through
@@ -27,3 +29,6 @@ the notes of the version's GitHub Release.
 - Refused credentials kept in `/data` (salted 6-bit mark), pauses after a
   429 / 5xx, bounded answers, the "Test the connection", "Request local
   access" and "Finish local access" buttons.
+
+[Unreleased]: https://github.com/LM1LC3N7/gladys-telldus/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/LM1LC3N7/gladys-telldus/releases/tag/v0.1.1

@@ -1,6 +1,6 @@
 {
   "name": "gladys-telldus",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Gladys Assistant external integration for TellStick and Telldus Live: 433 MHz plugs and lights (assumed state, commanded once declared safe), temperature and humidity sensors. Unofficial, not affiliated with Telldus.",
   "type": "module",
