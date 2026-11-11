@@ -71,6 +71,8 @@ export const TIMINGS = {
   stopRetry: 250,
   /** A stop sent again after these delays from the click (433 MHz has no feedback). */
   stopResends: [3_000, 10_000],
+  /** A read showing the device on cancels the resends only when it left this long after a send. */
+  stopReadAfter: 3_000,
   /** A stop that could not be sent: tried again on this spacing, up to stopAttempts. */
   stopAttempts: 6,
   stopRetrySpacing: 10_000,

@@ -76,6 +76,9 @@ export async function setup(t, options = {}) {
   const srv = options.srv ?? (await fakeTelldus({ now: clock.now }));
   let pending = 0;
   const request = (url, opts) => {
+    // A failure injected before the network (`inject` returns an error to throw).
+    const injected = options.inject?.(url, opts);
+    if (injected) return Promise.reject(injected);
     pending += 1;
     return httpRequest(url, opts).finally(() => {
       pending -= 1;
@@ -106,7 +109,8 @@ export async function setup(t, options = {}) {
   const app = new TelldusApp({
     gladys,
     logger,
-    now: clock.now,
+    // The wall clock may jump (`wallOffset`, a box { ms }): the monotonic one never does.
+    now: options.wallOffset ? () => clock.now() + options.wallOffset.ms : clock.now,
     monotonic: clock.monotonic,
     timers: clock.timers,
     store,

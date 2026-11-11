@@ -55,7 +55,8 @@ A plug may feed a heater, a pump or a garage door, and a "turn everything
 off/on" of a voice assistant or a scene reaches every switch and light. So a
 device is shown **read only** (unknown type) until you list its Telldus id in
 **Devices declared safe** (for example `1234567, 1234568`). The **Test the
-connection** button lists the ids. After changing the list, scan and update
+connection** button lists the ids. The ids are those of the current
+connection mode: Telldus Live and the local API number devices differently. After changing the list, scan and update
 the device in the Discovery tab. A feature created before the list changed
 is kept; turning on through it is then refused.
 
@@ -75,8 +76,13 @@ the device list, a read in progress (it is cut) or `/data`. It is sent at
 once, sent again after 3 s and 10 s (a 433 MHz receiver may miss one
 transmission), and a send that fails is tried again every 10 s, 6 tries and
 2 minutes at most (then the status names the device). A turn on of the same
-device accepted by Telldus, or a read showing the device on again (the
-Telldus app or a remote), stops the resends. Pending stops are kept in
+device accepted by Telldus, or a read that left at least 3 s after the last
+send and shows the device on again (the Telldus app or a remote), stops the
+resends; a resend due while a newer turn on is on its way waits for its
+answer. A send Telldus answers with an error (401/403, 4xx, `error`, 429) is
+"refused by Telldus" and tried again in 10 s; a 429 also pauses the reads.
+The 2 minutes are counted on a monotonic clock (a clock change of the
+system never drops a stop). Pending stops are kept in
 `/data` and go on after a restart (never older than 2 minutes).
 
 Turning off is not sent only when: the configuration is not read or not
@@ -87,7 +93,7 @@ credentials.
 ## Errors and limits
 
 - **401/403 on the device list**: the credentials are refused. Nothing is
-  sent with them again on its own (the refusal and a 6-bit mark, salted,
+  sent with them again on its own (the refusal and a 32-bit mark, salted,
   are kept in `/data`); new credentials, a new local access or a success of
   the **Test the connection** button lift it. A 401/403 on the sensors only,
   or on a command, is not a refusal: the sensors are then read less often

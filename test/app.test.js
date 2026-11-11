@@ -392,13 +392,20 @@ test('a stop kept in /data goes on after a restart; one older than 2 minutes is 
 test('a read showing the device on after our stop: the resends stop (the Telldus app or a remote turned it on)', async (t) => {
   const ctx = await setup(t, { config: { poll_seconds: 60 } });
   const { srv, clock, app } = ctx;
-  await clock.advance(TIMINGS.pollDefault - 1_500);
+  await clock.advance(TIMINGS.pollDefault - 9_000);
   assert.match(await answer(ctx, command(ctx, D('live', 101, 'state'), 0)), /^sent/);
-  srv.data.devices[0].state = 1; // turned on by someone else right after
-  await until(clock, () => srv.count('devices/list') === 2, 'next read', { step: 20, max: 3_000 });
-  await until(clock, () => app.stops.size === 0, 'resends cancelled', { step: 20, max: 1_000 });
+  await until(clock, () => srv.count('device/turnOff') === 2, 'resend at 3 s', {
+    step: 20,
+    max: 4_000,
+  });
+  // Turned on by someone else after the resend: the next read (6 s later) shows it.
+  srv.routes['GET devices/list'] = () => ({
+    device: srv.data.devices.map((d) => (d.id === '101' ? { ...d, state: 1 } : d)),
+  });
+  await until(clock, () => srv.count('devices/list') === 2, 'next read', { step: 20, max: 7_000 });
+  await until(clock, () => app.stops.size === 0, 'resends cancelled', { step: 20, max: 500 });
   await clock.advance(15_000);
-  assert.equal(srv.count('device/turnOff'), 1);
+  assert.equal(srv.count('device/turnOff'), 2);
 });
 
 test('401 on the device list: refused, kept in /data, no try on its own; new keys read again', async (t) => {

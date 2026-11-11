@@ -62,7 +62,8 @@ un « tout éteindre/allumer » d’un assistant vocal ou d’une scène atteint
 chaque interrupteur et chaque lumière. Un appareil est donc affiché en
 **lecture seule** (type inconnu) tant que son identifiant Telldus n’est pas
 listé dans **Appareils déclarés sûrs** (par exemple `1234567, 1234568`). Le
-bouton **Tester la connexion** donne les identifiants. Après un changement
+bouton **Tester la connexion** donne les identifiants. Ce sont ceux du mode de connexion actuel : Telldus Live et l’API locale
+numérotent les appareils différemment. Après un changement
 de la liste, scannez et mettez à jour l’appareil dans l’onglet Découverte.
 Une fonction créée avant le changement de la liste est gardée ; allumer par
 elle est alors refusé.
@@ -85,8 +86,13 @@ ni la liste des appareils, ni une lecture en cours (elle est coupée), ni
 récepteur 433 MHz peut manquer une émission), et un envoi qui échoue est
 réessayé toutes les 10 s, 6 essais et 2 minutes au plus (le statut nomme
 ensuite l’appareil). Un allumage du même appareil accepté par Telldus, ou une
-lecture montrant l’appareil rallumé (appli Telldus ou télécommande), arrête
-les renvois. Les extinctions en attente sont gardées dans `/data` et
+lecture partie au moins 3 s après le dernier envoi et montrant l’appareil
+rallumé (appli Telldus ou télécommande), arrête les renvois ; un renvoi dû
+pendant qu’un allumage plus récent est en route attend sa réponse. Un envoi
+auquel Telldus répond une erreur (401/403, 4xx, `error`, 429) est « refusé
+par Telldus » et réessayé dans 10 s ; un 429 met aussi les lectures en pause.
+Les 2 minutes sont comptées sur une horloge monotone (un changement d’heure
+du système ne fait jamais abandonner une extinction). Les extinctions en attente sont gardées dans `/data` et
 continuent après un redémarrage (jamais au-delà de 2 minutes).
 
 L’extinction ne part pas seulement quand : la configuration n’est pas encore
@@ -97,7 +103,7 @@ ces identifiants-là.
 ## Erreurs et limites
 
 - **401/403 sur la liste des appareils** : identifiants refusés. Plus rien
-  n’est envoyé avec eux de lui-même (le refus et une marque de 6 bits, salée,
+  n’est envoyé avec eux de lui-même (le refus et une marque de 32 bits, salée,
   sont gardés dans `/data`) ; de nouveaux identifiants, un nouvel accès local
   ou un succès du bouton **Tester la connexion** le lèvent. Un 401/403 sur les
   capteurs seuls, ou sur une commande, n’est pas un refus : les capteurs sont

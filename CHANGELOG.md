@@ -20,6 +20,8 @@ the notes of the version's GitHub Release.
 - A device is a switch or a light only once its Telldus id is declared safe;
   otherwise read only. Turning off is never held, sent again after 3 s and
   10 s, kept in `/data` across a restart.
-- Refused credentials kept in `/data` (salted 6-bit mark), pauses after a
+- Stops aged on the monotonic clock, one timer per stop, nothing after
+  shutdown; a resend waits for a newer turn on on its way (review r1).
+- Refused credentials kept in `/data` (salted 32-bit mark), pauses after a
   429 / 5xx, bounded answers, the "Test the connection", "Request local
   access" and "Finish local access" buttons.

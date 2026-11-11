@@ -179,8 +179,8 @@
         "fr": "Appareils"
       },
       "description": {
-        "en": "A plug may feed a heater or a pump, and \"turn everything off/on\" reaches every switch and light: a device is commanded only once its Telldus id is listed here (the \"Test the connection\" button lists the ids). Turning off is never refused. Then scan and update the device in the Discovery tab.",
-        "fr": "Une prise peut alimenter un radiateur ou une pompe, et « tout éteindre/allumer » atteint chaque interrupteur et lumière : un appareil n’est commandé qu’une fois son identifiant Telldus listé ici (le bouton « Tester la connexion » donne les identifiants). Éteindre n’est jamais refusé. Puis scannez et mettez à jour l’appareil dans l’onglet Découverte."
+        "en": "A plug may feed a heater or a pump, and \"turn everything off/on\" reaches every switch and light: a device is commanded only once its Telldus id is listed here (the \"Test the connection\" button lists the ids of the current connection mode: Live and local ids differ). Turning off does not need the list. Then scan and update the device in the Discovery tab.",
+        "fr": "Une prise peut alimenter un radiateur ou une pompe, et « tout éteindre/allumer » atteint chaque interrupteur et lumière : un appareil n’est commandé qu’une fois son identifiant Telldus listé ici (le bouton « Tester la connexion » donne les identifiants du mode de connexion actuel : ceux de Live et du local diffèrent). Éteindre n’a pas besoin de la liste. Puis scannez et mettez à jour l’appareil dans l’onglet Découverte."
       }
     },
     {

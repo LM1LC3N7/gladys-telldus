@@ -5,9 +5,9 @@
 //   - the time of the last read attempt (a restart never reads sooner than
 //     the interval);
 //   - the pause after a 429 / 5xx (until, count in a row);
-//   - after Telldus refused the keys or the token: the refusal and a 6-bit
-//     mark of what was refused (salted: 64 possible values, says nothing
-//     usable of a key), so it is never sent again on its own;
+//   - after Telldus refused the keys or the token: the refusal and a 32-bit
+//     salted mark of what was refused (never the key), so it is never sent
+//     again on its own after a restart;
 //   - the stops (turn off) still to be sent again;
 //   - the source date of the last sensor value published, per feature (a
 //     value never published twice as new);
@@ -167,7 +167,7 @@ export function normalizeMemory(raw, now) {
     failures,
   };
   const auth = own(raw, 'auth');
-  const mark = int(own(auth, 'mark'), 0, 63);
+  const mark = int(own(auth, 'mark'), 0, MARK_MAX);
   memory.auth =
     own(auth, 'refused') === true && mark !== undefined
       ? { refused: true, mark }
@@ -199,7 +199,7 @@ export function normalizeMemory(raw, now) {
     }
   }
   const token = own(raw, 'token');
-  const tokenMark = int(own(token, 'mark'), 0, 63);
+  const tokenMark = int(own(token, 'mark'), 0, MARK_MAX);
   const expires = own(token, 'expires');
   if (tokenMark !== undefined && Number.isFinite(expires) && expires > 0) {
     memory.token = { mark: tokenMark, expires, renew: own(token, 'renew') === true };
@@ -229,7 +229,14 @@ export function serializeMemory(memory) {
   };
 }
 
-/** The 6-bit salted mark of a text (credentials, a token): 64 values, nothing usable. */
+const MARK_MAX = 0xffffffff;
+
+/**
+ * The 32-bit salted mark of a text (credentials, a token): new credentials are
+ * never taken for the refused ones (1 chance in 4 billion), and the salt makes
+ * it useless elsewhere. The keys and tokens of Telldus are long random texts:
+ * no brute force can rebuild them from 32 bits.
+ */
 export function mark(salt, text) {
-  return createHash('sha256').update(`${salt}\0${text}`).digest()[0] & 0x3f;
+  return createHash('sha256').update(`${salt}\0${text}`).digest().readUInt32BE(0);
 }

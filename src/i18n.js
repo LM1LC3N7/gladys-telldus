@@ -133,6 +133,11 @@ export const T = {
     'nothing sent yet: turning off is tried again',
     'rien envoyé pour l’instant : l’extinction est réessayée',
   ),
+  stopRefusedByTelldus: (detail) =>
+    both(
+      `refused by Telldus (${detail}); tried again in 10 s`,
+      `refusé par Telldus (${detail}) ; nouvel essai dans 10 s`,
+    ),
   stopRefusedAuth: both(
     'nothing sent: Telldus refused these credentials',
     'rien envoyé : Telldus a refusé ces identifiants',

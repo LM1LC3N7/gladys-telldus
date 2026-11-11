@@ -17,7 +17,9 @@ up to date at the end of every milestone.
       account: check the field names and types of `devices/list` and
       `sensors/list` (strings or numbers), the `lastUpdated` of each sensor
       value, the error answers of a bad signature (401 or 200 + `error`),
-      the local token flow and `refreshToken` (does it rotate the token?).
+      the local token flow and `refreshToken` (does it rotate the token?);
+      how soon after a `device/turnOff` Telldus Live shows the new `state`
+      (a read that left 3 s after a send may cancel the resends, r1 M5).
 - [ ] **Milestone 3 — more devices**: groups, shutters (up/down/stop, with
       the opening option), bells, the other sensor values (rain, wind, UV,
       power), battery (253/254/255 or a percentage).
@@ -46,6 +48,12 @@ up to date at the end of every milestone.
   never pauses the others; a 429 pauses the account (all but stops).
 - Credentials: never in `/data`, logs, status, errors (the API error texts
   are masked). The local token lives in the Gladys configuration only; its
-  expiry and a 6-bit mark are in `/data`.
+  expiry and a 32-bit salted mark are in `/data`.
+- Refusal mark: 32 bits salted (review r1, I3), not 4-8 bits: Telldus keys
+  and tokens are long random texts (no brute force), and new credentials must
+  never be taken for refused ones; changed credentials lift a refusal in
+  session at once anyway.
+- Stop ages on the monotonic clock (review r1, I1); the wall date of /data
+  only places a stop kept across a restart, bounded to 2 minutes.
 - The test button may lift a refusal by a success, not more often than the
   mode's minimum interval (60 s Live, 10 s local).

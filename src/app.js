@@ -114,12 +114,14 @@ export class TelldusApp {
     this.commandAt = new Map();
     /** key -> counter bumped at each stop (a command queued before never leaves after it). */
     this.stopGen = new Map();
-    /** key -> stop { mode, id, at (wall), sent, attempts, timer, inflight, hold }. */
+    /** key -> stop { mode, id, at (wall, for /data), atMono, sent, attempts, timer, inflight, holdWait }. */
     this.stops = new Map();
     this.lostStops = [];
     this.readLane = Promise.resolve();
     this.commandLanes = new Map();
     this.readAbort = undefined;
+    /** Short waits of the stops (timer -> resolve), cut by stop(). */
+    this.sleeps = new Map();
     this.pollTimer = undefined;
     this.configTimer = undefined;
     this.storeTimer = undefined;
@@ -148,7 +150,13 @@ export class TelldusApp {
     this.publisher.start();
     this.statusKey = undefined;
     this.discoveryKey = undefined;
-    if (this.memoryState === 'none' || this.memoryState === 'unreadable') await this.loadMemory();
+    if (!this.loading && (this.memoryState === 'none' || this.memoryState === 'unreadable')) {
+      this.loading = this.loadMemory().finally(() => {
+        this.loading = undefined;
+      });
+    }
+    // A second connection during a slow /data waits for the same load, then goes on alone.
+    if (this.loading) await this.loading;
     if (gen !== this.generation) return;
     await this.readConfig(gen);
   }
@@ -166,6 +174,11 @@ export class TelldusApp {
       if (stop.timer) this.timers.clearTimeout(stop.timer);
       stop.timer = undefined;
     }
+    for (const [handle, resolve] of this.sleeps) {
+      this.timers.clearTimeout(handle);
+      resolve();
+    }
+    this.sleeps.clear();
     await this.save();
   }
 
@@ -193,8 +206,11 @@ export class TelldusApp {
     // Stops clicked meanwhile (/data was unreadable) win over the file.
     for (const stop of memory.stops) {
       const key = `${stop.mode}-${stop.id}`;
-      if (!this.stops.has(key))
-        this.stops.set(key, { ...stop, timer: undefined, inflight: undefined, hold: 0 });
+      if (!this.stops.has(key)) {
+        // Its age goes on on the monotonic clock (the wall date of /data is bounded on load).
+        const atMono = this.monotonic() - Math.min(Math.max(0, now - stop.at), TIMINGS.stopMaxAge);
+        this.stops.set(key, { ...stop, atMono, timer: undefined, inflight: undefined });
+      }
     }
     this.memory = memory;
     this.pauseUntil = memory.pause.until > now ? this.monotonic() + (memory.pause.until - now) : 0;
@@ -258,6 +274,11 @@ export class TelldusApp {
       before.local.host === config.local.host &&
       config.local.token === this.renewedToken;
     this.config = config;
+    if (credentialsChanged && before && this.memory.auth.refused) {
+      // New credentials are always tried: the mark only serves after a restart.
+      this.memory.auth = { refused: false };
+      this.save();
+    }
     if (credentialsChanged) {
       this.api = readable(config)
         ? new TelldusApi(config, {
@@ -658,8 +679,14 @@ export class TelldusApp {
       // A read that left before the last command of this device says nothing of it.
       if ((this.commandAt.get(key) ?? -Infinity) >= started) continue;
       const stop = this.stops.get(key);
-      if (stop && device.state?.on === STATE.ON && stop.sent > 0 && !stop.inflight) {
-        // Turned on after our stop, by the Telldus app, a schedule or a remote: no resend over it.
+      if (
+        stop &&
+        device.state?.on === STATE.ON &&
+        stop.sent > 0 &&
+        started - stop.lastSendAt >= TIMINGS.stopReadAfter
+      ) {
+        // Turned on after our stop, by the Telldus app, a schedule or a remote: no resend over it
+        // (a read that left soon after a send may still show the old state: it says nothing).
         this.endStop(key);
       }
       if (!device.state) continue;
@@ -722,6 +749,8 @@ export class TelldusApp {
   /** A new local token: used at once, saved in the configuration of Gladys (never in /data). */
   async useToken(fresh, expires, renew) {
     this.replacedToken = this.config.local.token;
+    // A new token is always tried.
+    this.memory.auth = { refused: false };
     this.renewedToken = fresh;
     this.pendingToken = fresh;
     this.config.local.token = fresh;
@@ -781,11 +810,11 @@ export class TelldusApp {
       mode,
       id,
       at: this.now(),
+      atMono: this.monotonic(),
       sent: 0,
       attempts: 0,
       timer: undefined,
       inflight: undefined,
-      hold: 0,
     };
     this.stops.set(key, stop);
     this.lostStops = this.lostStops.filter((n) => n !== this.stopName(stop));
@@ -803,13 +832,30 @@ export class TelldusApp {
       this.monotonic() + TIMINGS.stopRetry < deadline &&
       this.stops.get(key) === stop
     ) {
-      await new Promise((resolve) => this.timers.setTimeout(resolve, TIMINGS.stopRetry));
-      if (this.stops.get(key) === stop && !stop.inflight)
+      await this.sleep(TIMINGS.stopRetry);
+      if (!this.stopped && this.stops.get(key) === stop && !stop.inflight)
         outcome = await this.sendStop(stop, deadline);
     }
     if (outcome === 'sent') return T.sent.en;
     if (outcome === 'no-answer') return T.sentNoAnswer.en;
+    if (outcome === 'refused') return T.stopRefusedByTelldus(stop.lastError ?? 'error').en;
     return T.stopNotSent.en;
+  }
+
+  /** A short wait (cut and resolved by stop()). */
+  sleep(ms) {
+    return new Promise((resolve) => {
+      const handle = this.timers.setTimeout(() => {
+        this.sleeps.delete(handle);
+        resolve();
+      }, ms);
+      this.sleeps.set(handle, resolve);
+    });
+  }
+
+  /** Age of a stop on the monotonic clock. */
+  stopAge(stop) {
+    return this.monotonic() - stop.atMono;
   }
 
   stopName(stop) {
@@ -827,9 +873,8 @@ export class TelldusApp {
   /** Stops kept (in /data, or clicked before the configuration was read): sent now. */
   resumeStops() {
     for (const [key, stop] of this.stops) {
-      if (stop.inflight || stop.timer) continue;
-      const age = this.now() - stop.at;
-      if (age > TIMINGS.stopMaxAge || age < 0) {
+      if (stop.timer) continue;
+      if (this.stopAge(stop) > TIMINGS.stopMaxAge) {
         // Never replayed late: it could turn off what was turned on since.
         this.endStop(key);
         continue;
@@ -857,12 +902,15 @@ export class TelldusApp {
    */
   sendStop(stop, deadline) {
     const key = `${stop.mode}-${stop.id}`;
-    if (this.stops.get(key) !== stop || stop.inflight) return Promise.resolve('not-sent');
+    if (this.stopped || this.stops.get(key) !== stop || stop.inflight) {
+      return Promise.resolve('not-sent');
+    }
     const ready = this.stopReady(stop);
     if (ready !== true) return Promise.resolve('not-sent');
     // A read in flight never delays a stop: cut it (it counts as nothing).
     this.readAbort?.abort();
     stop.attempts += 1;
+    stop.lastSendAt = this.monotonic();
     let left = false;
     const request = this.api
       .call(
@@ -874,6 +922,12 @@ export class TelldusApp {
         () => 'sent',
         (err) => {
           this.logger?.warn(`Turning off ${stop.id}: ${this.redact(err.message)}`);
+          if (err.kind === 'rate') this.pause(err);
+          if (['auth', 'refused', 'bad', 'rate'].includes(err.kind)) {
+            // Telldus answered no: not "without confirmation".
+            stop.lastError = err.status ? `HTTP ${err.status}` : this.redact(err.message);
+            return 'refused';
+          }
           return err.sent || left ? 'failed-sent' : 'not-sent';
         },
       );
@@ -905,8 +959,8 @@ export class TelldusApp {
       this.endStop(key);
       return;
     }
-    const age = this.now() - stop.at;
-    if (stop.attempts >= TIMINGS.stopAttempts || age > TIMINGS.stopMaxAge || age < 0) {
+    const age = this.stopAge(stop);
+    if (stop.attempts >= TIMINGS.stopAttempts || age > TIMINGS.stopMaxAge) {
       if (stop.sent === 0) {
         this.lostStops = [
           ...this.lostStops.filter((n) => n !== this.stopName(stop)),
@@ -922,15 +976,15 @@ export class TelldusApp {
         ? Math.max(0, resends[stop.sent - 1] - age)
         : TIMINGS.stopRetrySpacing;
     this.save();
-    stop.timer = this.timers.setTimeout(() => {
+    // One timer per stop: a new plan replaces the one in place.
+    if (stop.timer) this.timers.clearTimeout(stop.timer);
+    stop.timer = this.timers.setTimeout(async () => {
       stop.timer = undefined;
-      if (stop.hold > 0) {
-        // A command of this device is leaving: wait for its answer.
-        stop.timer = this.timers.setTimeout(() => {
-          stop.timer = undefined;
-          this.sendStop(stop);
-        }, 500);
-        return;
+      if (stop.holdWait) {
+        // A newer command of this device has left: its answer decides (2xx ends this stop,
+        // anything else and the stop leaves), bounded by the command timeout.
+        await bounded(stop.holdWait, TIMINGS.commandTimeout, this.timers, () => undefined);
+        if (this.stopped || this.stops.get(key) !== stop) return;
       }
       this.sendStop(stop);
     }, delay);
@@ -989,21 +1043,28 @@ export class TelldusApp {
           return { refused: T.notSentCommand('timeout') };
       }
       const held = this.stops.get(deviceKey);
-      if (held) held.hold += 1;
       const query = cmd.level === undefined ? { id } : { id, level: cmd.level };
+      const call = this.api.call(cmd.call, query, {
+        timeoutMs: TIMINGS.commandTimeout,
+        onSent: () => (left = true),
+      });
+      const wait = call.then(
+        () => undefined,
+        () => undefined,
+      );
+      if (held) held.holdWait = wait;
       try {
-        await this.api.call(cmd.call, query, {
-          timeoutMs: TIMINGS.commandTimeout,
-          onSent: () => (left = true),
-        });
+        await call;
       } catch (err) {
         return { error: err };
       } finally {
-        if (held) held.hold -= 1;
+        if (held && held.holdWait === wait) held.holdWait = undefined;
       }
       // It left and Telldus accepted it: newer than any stop of this device.
       this.commandAt.set(deviceKey, this.monotonic());
       if (this.stops.get(deviceKey) === held && held) this.endStop(deviceKey);
+      // A stop clicked while it was on its way wins: no ON shown over it.
+      if ((this.stopGen.get(deviceKey) ?? 0) !== gen) return { ok: true };
       const ids = deviceIds(this.gladys, mode, id);
       if (key === 'brightness') {
         this.push(ids.feature('state'), STATE.ON);

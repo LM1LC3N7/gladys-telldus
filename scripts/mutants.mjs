@@ -52,8 +52,8 @@ export const MUTANTS = [
   [
     '5xx of one device never pauses',
     A,
-    "if (err.kind === 'rate') this.pause(err);",
-    "if (err.kind === 'rate' || err.kind === 'server') this.pause(err);",
+    "pause. A 5xx of one device never pauses the others.\n    if (err.kind === 'rate') this.pause(err);",
+    "pause. A 5xx of one device never pauses the others.\n    if (err.kind === 'rate' || err.kind === 'server') this.pause(err);",
   ],
   // Stops.
   [
@@ -85,8 +85,8 @@ export const MUTANTS = [
   [
     'turned on elsewhere cancels the resends',
     A,
-    '// Turned on after our stop, by the Telldus app, a schedule or a remote: no resend over it.\n        this.endStop(key);',
-    '',
+    'says nothing).\n        this.endStop(key);',
+    'says nothing).',
   ],
   [
     'stops kept in /data',
@@ -97,7 +97,7 @@ export const MUTANTS = [
   [
     'stop never replayed late',
     A,
-    'if (age > TIMINGS.stopMaxAge || age < 0) {\n        // Never',
+    'if (this.stopAge(stop) > TIMINGS.stopMaxAge) {\n        // Never',
     'if (false) {\n        // Never',
   ],
   [
@@ -181,6 +181,81 @@ export const MUTANTS = [
     'src/model.js',
     "if (typeof value === 'string' && /^-?\\d{1,4}(?:\\.\\d{1,3})?$/.test(value)) return Number(value);",
     "if (typeof value === 'string') return Number(value);",
+  ],
+  // Review r1.
+  [
+    'I1 stop age monotonic',
+    A,
+    'return this.monotonic() - stop.atMono;',
+    'return this.now() - stop.at;',
+  ],
+  [
+    'I2 one timer per stop',
+    A,
+    'if (stop.timer) this.timers.clearTimeout(stop.timer);\n    stop.timer = this.timers.setTimeout(async',
+    'stop.timer = this.timers.setTimeout(async',
+  ],
+  [
+    'I2 planStop after stop()',
+    A,
+    'if (this.stopped || this.stops.get(key) !== stop) return;\n    const resends',
+    'if (this.stops.get(key) !== stop) return;\n    const resends',
+  ],
+  [
+    'I2 stop() cancels the stop timers',
+    A,
+    'if (stop.timer) this.timers.clearTimeout(stop.timer);\n      stop.timer = undefined;\n    }\n    for (const [handle',
+    'stop.timer = undefined;\n    }\n    for (const [handle',
+  ],
+  [
+    'I3 new keys lift the refusal',
+    A,
+    'if (credentialsChanged && before && this.memory.auth.refused) {',
+    'if (false) {',
+  ],
+  ['I4 resend waits for a newer turn on', A, 'if (held) held.holdWait = wait;', ''],
+  [
+    'I4 one send of a stop at a time',
+    A,
+    'if (this.stopped || this.stops.get(key) !== stop || stop.inflight) {',
+    'if (this.stopped || this.stops.get(key) !== stop) {',
+  ],
+  [
+    'I4 sensors 429/5xx pause',
+    A,
+    "if (err.kind === 'rate' || err.kind === 'server') {\n        this.pause(err);\n        return;",
+    "if (err.kind === 'rate' || err.kind === 'server') {\n        return;",
+  ],
+  [
+    'I4 command 429 pauses',
+    A,
+    "pause. A 5xx of one device never pauses the others.\n    if (err.kind === 'rate') this.pause(err);",
+    'pause. A 5xx of one device never pauses the others.',
+  ],
+  ['I4 read 3 s after the send', A, 'started - stop.lastSendAt >= TIMINGS.stopReadAfter', 'true'],
+  [
+    'I4 retry within 250 ms',
+    A,
+    'if (!this.stopped && this.stops.get(key) === stop && !stop.inflight)\n        outcome = await this.sendStop(stop, deadline);',
+    '',
+  ],
+  [
+    'I4 generation in connected',
+    A,
+    'if (this.loading) await this.loading;\n    if (gen !== this.generation) return;',
+    'if (this.loading) await this.loading;',
+  ],
+  [
+    'M2 refused by Telldus said',
+    A,
+    "            return 'refused';",
+    "            return 'failed-sent';",
+  ],
+  [
+    'M4 no ON over a newer stop',
+    A,
+    'if ((this.stopGen.get(deviceKey) ?? 0) !== gen) return { ok: true };',
+    '',
   ],
 ];
 
