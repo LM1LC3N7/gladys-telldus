@@ -179,7 +179,17 @@ export class TelldusApp {
       resolve();
     }
     this.sleeps.clear();
-    await this.save();
+    // The last state is written before leaving (a stop ended is never replayed after a restart):
+    // the write in progress first, then a fresh one, the whole bounded.
+    await bounded(
+      (async () => {
+        if (this.saving) await this.saving;
+        await this.save();
+      })(),
+      TIMINGS.storeTimeout,
+      this.timers,
+      () => false,
+    );
   }
 
   async loadMemory() {
@@ -930,6 +940,14 @@ export class TelldusApp {
         (err) => {
           this.logger?.warn(`Turning off ${stop.id}: ${this.redact(err.message)}`);
           if (err.kind === 'rate') this.pause(err);
+          if (err.kind === 'auth' && this.refused()) {
+            // The mark of a refusal kept from before a restart, now confirmed by Telldus:
+            // a refusal seen in this session (one try per click, never six with refused keys).
+            this.refusedText = credentialsText(this.config);
+            this.memory.auth = { refused: true, mark: this.credentialsMark() };
+            this.save();
+            this.publishStatus();
+          }
           if (['auth', 'refused', 'bad', 'rate'].includes(err.kind)) {
             // Telldus answered no: not "without confirmation".
             stop.lastError = err.status ? `HTTP ${err.status}` : this.redact(err.message);
@@ -942,6 +960,10 @@ export class TelldusApp {
     request.then((result) => {
       stop.inflight = undefined;
       if (stop.ended || this.stops.get(key) !== stop) return;
+      if (this.refusedProven()) {
+        this.endStop(key);
+        return;
+      }
       if (result === 'sent') {
         stop.sent += 1;
         this.commandAt.set(key, this.monotonic());

@@ -275,6 +275,18 @@ export const MUTANTS = [
     'this.memory.auth = { refused: false };\n      this.refusedText = undefined;',
     'this.refusedText = undefined;',
   ],
+  [
+    'M10 a 401 on a stop confirms a kept refusal',
+    A,
+    "if (err.kind === 'auth' && this.refused()) {",
+    'if (false) {',
+  ],
+  [
+    'M11 stop() finishes the write in progress',
+    A,
+    'if (this.saving) await this.saving;\n        await this.save();',
+    'await this.save();',
+  ],
 ];
 
 async function run(dir) {

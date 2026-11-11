@@ -10,7 +10,7 @@ import { TIMINGS } from '../src/constants.js';
 import { HttpError } from '../src/http.js';
 import { memoryStore } from '../src/store.js';
 import { reply } from './helpers/fakeTelldus.js';
-import { D, answer, command, flush, setup, statesOf, until } from './helpers/app.js';
+import { D, answer, command, flush, setup, status, statesOf, until } from './helpers/app.js';
 
 for (const jump of [-60_000, 3_600_000]) {
   test(`I1: a wall clock jump of ${jump / 1000} s during an outage never drops a stop`, async (t) => {
@@ -307,4 +307,68 @@ test('I5: after a restart, a mark is a hint only: a stop is sent; the test butto
   assert.match(text.en, /Connection works/);
   assert.equal(again.app.refused(), false);
   assert.equal(again.store.data.auth.refused, false);
+});
+
+test('M10: after a restart, a 401 on a stop confirms the kept refusal: one try per click, then the status asks for new keys', async (t) => {
+  const first = await setup(t);
+  first.srv.routes['GET devices/list'] = () => reply(401, {});
+  await first.clock.advance(TIMINGS.pollDefault + 100);
+  await until(first.clock, () => first.app.refused(), 'refusal');
+  await first.app.stop();
+  first.srv.routes['GET device/turnOff'] = () => reply(401, {});
+  const again = await setup(t, {
+    data: first.store.data,
+    srv: first.srv,
+    clock: first.clock,
+    firstRead: false,
+  });
+  assert.match(
+    await answer(again, command(again, D('live', 101, 'state'), 0)),
+    /refused by Telldus \(HTTP 401\)/,
+  );
+  await again.clock.advance(TIMINGS.stopMaxAge + 10_000);
+  assert.equal(first.srv.count('device/turnOff'), 1);
+  assert.match(status(again.gladys), /refused the keys/);
+  assert.match(
+    await answer(again, command(again, D('live', 101, 'state'), 0)),
+    /refused these credentials/,
+  );
+  assert.equal(first.srv.count('device/turnOff'), 1);
+});
+
+test('M11: stop() finishes the last /data write: a stop ended is never replayed after a restart', async (t) => {
+  const inner = memoryStore();
+  let gate;
+  const held = [];
+  const store = {
+    get data() {
+      return inner.data;
+    },
+    load: () => inner.load(),
+    save: (d) =>
+      gate ? new Promise((resolve) => held.push(() => resolve(inner.save(d)))) : inner.save(d),
+  };
+  const ctx = await setup(t, { store });
+  const { srv, clock, app } = ctx;
+  assert.match(await answer(ctx, command(ctx, D('live', 101, 'state'), 0)), /^sent/);
+  await clock.advance(9_500);
+  // /data slow from now on: a write still holding the stop is in flight when the stop ends.
+  gate = true;
+  app.save();
+  await until(
+    clock,
+    () => srv.count('device/turnOff') === 3 && app.stops.size === 0,
+    'stop ended',
+    {
+      step: 20,
+      max: 1_000,
+    },
+  );
+  assert.ok(held.length >= 1);
+  const stopping = app.stop();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  gate = false;
+  for (const release of held.splice(0)) release();
+  await stopping;
+  assert.deepEqual(store.data.stops, []);
 });

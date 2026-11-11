@@ -22,6 +22,8 @@ the notes of the version's GitHub Release.
   10 s, kept in `/data` across a restart.
 - Stops aged on the monotonic clock, one timer per stop, nothing after
   shutdown; a resend waits for a newer turn on on its way (review r1).
+- A 401/403 on a stop after a restart confirms a kept refusal (one try per
+  click); shutdown finishes the last `/data` write.
 - Refused credentials kept in `/data` (salted 6-bit mark), pauses after a
   429 / 5xx, bounded answers, the "Test the connection", "Request local
   access" and "Finish local access" buttons.
